@@ -1,4 +1,3 @@
-// C:\Users\morit\Desktop\3RD YR PROJECTS\3rd\App Development\AppDevProject\frontend\utils\toast.js
 import Toast from 'react-native-toast-message';
 import { View, Text } from 'react-native';
 

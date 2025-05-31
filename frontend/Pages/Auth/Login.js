@@ -99,10 +99,10 @@ const Login = ({ navigation }) => {
 
         showToast('success', 'Login Successful', `Welcome back, ${data.user.name || data.user.email}!`);
         
-        navigation.reset({
-            index: 0,
-            routes: [{ name: 'App' }],
-        });
+      navigation.reset({
+    index: 0,
+    routes: [{ name: 'Home' }],
+});
 
     } catch (error) {
         console.error('Login Error:', error);

@@ -32,7 +32,19 @@ const Register = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [focusedInput, setFocusedInput] = useState(null);
+  
+  // Track focus state for each input individually
+  const [focusStates, setFocusStates] = useState({
+    name: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+    street: false,
+    city: false,
+    state: false,
+    postalCode: false,
+    country: false
+  });
 
   // Address Information
   const [street, setStreet] = useState('');
@@ -153,39 +165,67 @@ const Register = ({ navigation }) => {
     }
   };
 
-  const renderInput = (props) => (
-    <View style={[
-      styles.inputWrapper,
-      focusedInput === props.name && styles.inputWrapperFocused
-    ]}>
-      <Ionicons name={props.icon} size={20} color="#667eea" style={styles.inputIcon} />
-      <TextInput
-        style={[styles.input, props.isPassword && styles.passwordInput]}
-        placeholder={props.placeholder}
-        placeholderTextColor="#a0a0a0"
-        value={props.value}
-        onChangeText={props.onChangeText}
-        secureTextEntry={props.secureTextEntry}
-        keyboardType={props.keyboardType}
-        autoCapitalize={props.autoCapitalize}
-        autoCorrect={false}
-        onFocus={() => setFocusedInput(props.name)}
-        onBlur={() => setFocusedInput(null)}
-      />
-      {props.isPassword && (
-        <TouchableOpacity
-          style={styles.eyeIcon}
-          onPress={props.onTogglePassword}
-        >
-          <Ionicons 
-            name={props.showPassword ? "eye-off-outline" : "eye-outline"} 
-            size={20} 
-            color="#667eea" 
-          />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+  const handleFocus = (fieldName) => {
+    setFocusStates(prev => ({
+      ...prev,
+      [fieldName]: true
+    }));
+  };
+
+  const handleBlur = (fieldName) => {
+    setFocusStates(prev => ({
+      ...prev,
+      [fieldName]: false
+    }));
+  };
+
+  const InputField = React.memo(({
+    name,
+    icon,
+    placeholder,
+    value,
+    onChangeText,
+    secureTextEntry = false,
+    keyboardType = 'default',
+    autoCapitalize = 'sentences',
+    isPassword = false,
+    showPassword = false,
+    onTogglePassword = () => {}
+  }) => {
+    return (
+      <View style={[
+        styles.inputWrapper,
+        focusStates[name] && styles.inputWrapperFocused
+      ]}>
+        <Ionicons name={icon} size={20} color="#667eea" style={styles.inputIcon} />
+        <TextInput
+          style={[styles.input, isPassword && styles.passwordInput]}
+          placeholder={placeholder}
+          placeholderTextColor="#a0a0a0"
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={false}
+          onFocus={() => handleFocus(name)}
+          onBlur={() => handleBlur(name)}
+        />
+        {isPassword && (
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={onTogglePassword}
+          >
+            <Ionicons 
+              name={showPassword ? "eye-off-outline" : "eye-outline"} 
+              size={20} 
+              color="#667eea" 
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  });
 
   return (
     <KeyboardAvoidingView
@@ -229,48 +269,48 @@ const Register = ({ navigation }) => {
                 <Ionicons name="person-outline" size={18} color="#667eea" /> Personal Information
               </Text>
               
-              {renderInput({
-                name: 'name',
-                icon: 'person-outline',
-                placeholder: 'Full Name *',
-                value: name,
-                onChangeText: setName,
-                autoCapitalize: 'words'
-              })}
+              <InputField
+                name="name"
+                icon="person-outline"
+                placeholder="Full Name *"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
               
-              {renderInput({
-                name: 'email',
-                icon: 'mail-outline',
-                placeholder: 'Email Address *',
-                value: email,
-                onChangeText: setEmail,
-                keyboardType: 'email-address',
-                autoCapitalize: 'none'
-              })}
+              <InputField
+                name="email"
+                icon="mail-outline"
+                placeholder="Email Address *"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
               
-              {renderInput({
-                name: 'password',
-                icon: 'lock-closed-outline',
-                placeholder: 'Password *',
-                value: password,
-                onChangeText: setPassword,
-                isPassword: true,
-                secureTextEntry: !showPassword,
-                showPassword: showPassword,
-                onTogglePassword: () => setShowPassword(!showPassword)
-              })}
+              <InputField
+                name="password"
+                icon="lock-closed-outline"
+                placeholder="Password *"
+                value={password}
+                onChangeText={setPassword}
+                isPassword={true}
+                secureTextEntry={!showPassword}
+                showPassword={showPassword}
+                onTogglePassword={() => setShowPassword(!showPassword)}
+              />
               
-              {renderInput({
-                name: 'confirmPassword',
-                icon: 'lock-closed-outline',
-                placeholder: 'Confirm Password *',
-                value: confirmPassword,
-                onChangeText: setConfirmPassword,
-                isPassword: true,
-                secureTextEntry: !showConfirmPassword,
-                showPassword: showConfirmPassword,
-                onTogglePassword: () => setShowConfirmPassword(!showConfirmPassword)
-              })}
+              <InputField
+                name="confirmPassword"
+                icon="lock-closed-outline"
+                placeholder="Confirm Password *"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                isPassword={true}
+                secureTextEntry={!showConfirmPassword}
+                showPassword={showConfirmPassword}
+                onTogglePassword={() => setShowConfirmPassword(!showConfirmPassword)}
+              />
             </View>
 
             {/* Address Information */}
@@ -279,54 +319,54 @@ const Register = ({ navigation }) => {
                 <Ionicons name="location-outline" size={18} color="#667eea" /> Address Information
               </Text>
               
-              {renderInput({
-                name: 'street',
-                icon: 'home-outline',
-                placeholder: 'Street Address *',
-                value: street,
-                onChangeText: setStreet
-              })}
+              <InputField
+                name="street"
+                icon="home-outline"
+                placeholder="Street Address *"
+                value={street}
+                onChangeText={setStreet}
+              />
               
               <View style={styles.rowInputs}>
                 <View style={styles.halfInput}>
-                  {renderInput({
-                    name: 'city',
-                    icon: 'business-outline',
-                    placeholder: 'City *',
-                    value: city,
-                    onChangeText: setCity
-                  })}
+                  <InputField
+                    name="city"
+                    icon="business-outline"
+                    placeholder="City *"
+                    value={city}
+                    onChangeText={setCity}
+                  />
                 </View>
                 <View style={styles.halfInput}>
-                  {renderInput({
-                    name: 'state',
-                    icon: 'map-outline',
-                    placeholder: 'State/Province',
-                    value: state,
-                    onChangeText: setState
-                  })}
+                  <InputField
+                    name="state"
+                    icon="map-outline"
+                    placeholder="State/Province"
+                    value={state}
+                    onChangeText={setState}
+                  />
                 </View>
               </View>
               
               <View style={styles.rowInputs}>
                 <View style={styles.halfInput}>
-                  {renderInput({
-                    name: 'postalCode',
-                    icon: 'mail-outline',
-                    placeholder: 'Postal Code',
-                    value: postalCode,
-                    onChangeText: setPostalCode,
-                    keyboardType: 'numeric'
-                  })}
+                  <InputField
+                    name="postalCode"
+                    icon="mail-outline"
+                    placeholder="Postal Code"
+                    value={postalCode}
+                    onChangeText={setPostalCode}
+                    keyboardType="numeric"
+                  />
                 </View>
                 <View style={styles.halfInput}>
-                  {renderInput({
-                    name: 'country',
-                    icon: 'globe-outline',
-                    placeholder: 'Country *',
-                    value: country,
-                    onChangeText: setCountry
-                  })}
+                  <InputField
+                    name="country"
+                    icon="globe-outline"
+                    placeholder="Country *"
+                    value={country}
+                    onChangeText={setCountry}
+                  />
                 </View>
               </View>
             </View>
@@ -368,6 +408,7 @@ const Register = ({ navigation }) => {
   );
 };
 
+// ... (keep your existing styles)
 const styles = StyleSheet.create({
   container: {
     flex: 1,

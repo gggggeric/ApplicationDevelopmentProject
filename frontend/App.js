@@ -7,6 +7,8 @@ import Toast from 'react-native-toast-message';
 import { toastConfig } from './utils/toast';
 import Login from './Pages/Auth/Login';
 import Register from './Pages/Auth/Register';
+import Home from './Pages/Home';
+import CustomDrawer from './Pages/CustomDrawer';
 
 const Stack = createStackNavigator();
 
@@ -34,6 +36,11 @@ export default function App() {
           <Stack.Screen 
             name="Register" 
             component={Register} 
+            options={{ headerShown: false }} 
+          />
+            <Stack.Screen 
+            name="Home" 
+            component={Home} 
             options={{ headerShown: false }} 
           />
         </Stack.Navigator>
