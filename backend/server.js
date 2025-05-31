@@ -19,4 +19,9 @@ db.once('open', () => console.log('Database Connected'));
 app.use(cors());
 app.use(express.json());
 
-app.listen(5080, () => console.log('Server is running'));
+app.get('/', (req, res) => {
+  res.send('API is running');
+});
+
+app.use('/auth', require('./routes/auth')); // Authentication routes
+app.listen(5000, () => console.log('Server is running'));
