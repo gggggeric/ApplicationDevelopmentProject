@@ -11,7 +11,7 @@ import Home from './Pages/Home';
 import CustomDrawer from './Pages/CustomDrawer';
 import ProfileScreen from './Pages/User/Profile';
 import DrivingQuizApp from './Pages/DrivingQuiz/DrivingQuiz';
-import WeatherScreen from './Pages/Weather/Weather';
+import WeatherScreen from './Pages/Safety/Weather';
 import Report from './Pages/Community/Report';
 import Forum from './Pages/Community/Forum';
 const Stack = createStackNavigator();
