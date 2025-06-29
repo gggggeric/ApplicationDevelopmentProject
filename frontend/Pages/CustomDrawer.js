@@ -61,10 +61,6 @@ const CustomDrawer = ({ navigation, onClose }) => {
   ];
 
   const safetyFeatures = [
-    { id: '4', title: 'Road Safety Game', icon: 'game-controller-outline', route: 'SafetyGame',
-      description: 'Gamified challenges with increasing difficulty' },
-    { id: '5', title: 'Safety Alerts', icon: 'notifications-outline', route: 'SafetyAlerts',
-      description: 'Real-time accident and road condition alerts' },
     { id: '6', title: 'Emergency Tips', icon: 'warning-outline', route: 'Weather',
       description: 'Weather-specific driving guidance' }
   ];

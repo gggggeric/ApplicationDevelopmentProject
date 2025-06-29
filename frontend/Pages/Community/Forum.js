@@ -10,14 +10,15 @@ import {
   RefreshControl,
   Dimensions,
   Alert,
-  Platform
+  Platform,
+  ScrollView
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../../utils/api';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const Forum = ({ navigation }) => {
   const [reports, setReports] = useState([]);
@@ -25,6 +26,25 @@ const Forum = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [failedImages, setFailedImages] = useState({});
+  const [loadingImages, setLoadingImages] = useState({});
+
+  const validateImageUrl = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return null;
+    
+    try {
+      const urlObj = new URL(trimmedUrl);
+      if (urlObj.protocol === 'http:') {
+        urlObj.protocol = 'https:';
+      }
+      return urlObj.toString();
+    } catch (error) {
+      console.log('Invalid URL format:', url);
+      return null;
+    }
+  };
 
   const fetchReports = async (reset = false) => {
     try {
@@ -35,16 +55,32 @@ const Forum = ({ navigation }) => {
         `${API_BASE_URL}/report/forum?page=${currentPage}&limit=10`,
         {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
           }
         }
       );
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to fetch reports`);
+      }
+
       const data = await response.json();
+      const processedData = data.data.map(report => {
+        const validPhotos = Array.isArray(report.photos) 
+          ? report.photos
+              .map(photo => validateImageUrl(photo))
+              .filter(photo => photo !== null)
+          : [];
+        
+        return {
+          ...report,
+          photos: validPhotos
+        };
+      });
 
-      if (!response.ok) throw new Error(data.message || 'Failed to fetch reports');
-
-      setReports(reset ? data.data : [...reports, ...data.data]);
+      setReports(reset ? processedData : [...reports, ...processedData]);
       setHasMore(data.pagination.page < data.pagination.pages);
       if (reset) setPage(1);
     } catch (error) {
@@ -62,6 +98,8 @@ const Forum = ({ navigation }) => {
 
   const handleRefresh = () => {
     setRefreshing(true);
+    setFailedImages({});
+    setLoadingImages({});
     fetchReports(true);
   };
 
@@ -72,126 +110,224 @@ const Forum = ({ navigation }) => {
     }
   };
 
-  const renderReportItem = ({ item }) => (
-    <View style={styles.reportCard}>
-      <View style={styles.userInfo}>
-        <View style={styles.avatar}>
-          <MaterialCommunityIcons name="account-circle" size={40} color="#504B38" />
-        </View>
-        <View style={styles.userMeta}>
-          <Text style={styles.username}>Community Member</Text>
-          <Text style={styles.postTime}>
-            {new Date(item.submittedAt).toLocaleDateString()} • 
-            {new Date(item.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
-        </View>
-      </View>
+  const handleImageError = (uri, error) => {
+    setFailedImages(prev => ({ ...prev, [uri]: true }));
+    setLoadingImages(prev => {
+      const newLoadingImages = { ...prev };
+      delete newLoadingImages[uri];
+      return newLoadingImages;
+    });
+  };
 
-      <Text style={styles.postText}>{item.description}</Text>
+  const handleImageLoad = (uri) => {
+    setFailedImages(prev => {
+      const newFailedImages = { ...prev };
+      delete newFailedImages[uri];
+      return newFailedImages;
+    });
+    setLoadingImages(prev => {
+      const newLoadingImages = { ...prev };
+      delete newLoadingImages[uri];
+      return newLoadingImages;
+    });
+  };
+
+  const handleImageLoadStart = (uri) => {
+    setLoadingImages(prev => ({ ...prev, [uri]: true }));
+  };
+
+  const renderPhotoGrid = (photos, reportId) => {
+    if (photos.length === 0) return null;
+
+    if (photos.length === 1) {
+      const photo = photos[0];
+      const hasValidPhoto = photo && !failedImages[photo];
       
-      {item.photos?.length > 0 && (
+      if (!hasValidPhoto) return null;
+
+      return (
         <TouchableOpacity 
           activeOpacity={0.9}
-          onPress={() => navigation.navigate('ReportDetail', { reportId: item._id })}
+          onPress={() => navigation.navigate('ReportDetail', { reportId })}
         >
           <View style={styles.mediaContainer}>
             <Image 
-              source={{ uri: item.photos[0] }} 
-              style={styles.postImage} 
+              source={{ uri: photo }}
+              style={styles.postImage}
               resizeMode="cover"
+              onError={(error) => handleImageError(photo, error)}
+              onLoad={() => handleImageLoad(photo)}
+              onLoadStart={() => handleImageLoadStart(photo)}
             />
-            {item.photos.length > 1 && (
-              <View style={styles.photoCountBadge}>
-                <Text style={styles.photoCountText}>+{item.photos.length - 1}</Text>
+            {loadingImages[photo] && (
+              <View style={styles.imageLoadingOverlay}>
+                <ActivityIndicator size="small" color="#504B38" />
               </View>
             )}
           </View>
         </TouchableOpacity>
-      )}
+      );
+    }
 
-      <View style={styles.postFooter}>
-        <View style={styles.reportMeta}>
-          <Ionicons name="location-outline" size={16} color="#657786" />
-          <Text style={styles.locationText}>{item.location}</Text>
+    const displayPhotos = photos.slice(0, 4);
+    const remainingCount = photos.length - displayPhotos.length;
+
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.9}
+        onPress={() => navigation.navigate('ReportDetail', { reportId })}
+      >
+        <View style={styles.photoGrid}>
+          {displayPhotos.map((photo, index) => {
+            const hasValidPhoto = photo && !failedImages[photo];
+            if (!hasValidPhoto) return null;
+
+            const isLastPhoto = index === displayPhotos.length - 1;
+            const showOverlay = remainingCount > 0 && isLastPhoto;
+
+            let gridItemStyle = styles.gridPhoto;
+            if (photos.length === 2) {
+              gridItemStyle = styles.gridPhotoHalf;
+            } else if (photos.length === 3) {
+              gridItemStyle = index === 0 ? styles.gridPhotoMain : styles.gridPhotoSmall;
+            } else if (photos.length >= 4) {
+              gridItemStyle = styles.gridPhotoQuarter;
+            }
+
+            return (
+              <View key={index} style={gridItemStyle}>
+                <Image 
+                  source={{ uri: photo }}
+                  style={styles.gridImage}
+                  resizeMode="cover"
+                  onError={(error) => handleImageError(photo, error)}
+                  onLoad={() => handleImageLoad(photo)}
+                  onLoadStart={() => handleImageLoadStart(photo)}
+                />
+                {loadingImages[photo] && (
+                  <View style={styles.imageLoadingOverlay}>
+                    <ActivityIndicator size="small" color="#504B38" />
+                  </View>
+                )}
+                {showOverlay && (
+                  <View style={styles.morePhotosOverlay}>
+                    <Text style={styles.morePhotosText}>+{remainingCount}</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderReportItem = ({ item }) => {
+    const photos = item.photos || [];
+
+    return (
+      <View style={styles.reportCard}>
+        <View style={styles.userInfo}>
+          <View style={styles.avatar}>
+            <MaterialCommunityIcons name="account-circle" size={40} color="#504B38" />
+          </View>
+          <View style={styles.userMeta}>
+            <Text style={styles.username}>Community Member</Text>
+            <Text style={styles.postTime}>
+              {new Date(item.submittedAt).toLocaleDateString()} • 
+              {new Date(item.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.postText}>{item.description}</Text>
+        
+        {renderPhotoGrid(photos, item._id)}
+
+        <View style={styles.postFooter}>
+          <View style={styles.reportMeta}>
+            <Ionicons name="location-outline" size={16} color="#B9B28A" />
+            <Text style={styles.locationText}>{item.location}</Text>
+          </View>
+          {photos.length > 0 && (
+            <View style={styles.photoIndicator}>
+              <MaterialCommunityIcons name="camera" size={16} color="#B9B28A" />
+              <Text style={styles.photoCountSmall}>{photos.length}</Text>
+            </View>
+          )}
         </View>
       </View>
-    </View>
-  );
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending': return '#FFA000';
-      case 'reviewed': return '#2196F3';
-      case 'resolved': return '#4CAF50';
-      default: return '#504B38';
-    }
+    );
   };
 
   if (loading && page === 1) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1DA1F2" />
+        <ActivityIndicator size="large" color="#504B38" />
+        <Text style={styles.loadingText}>Loading community reports...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Community Header */}
-      <View style={styles.communityHeader}>
-        <Image 
-          source={require('../../assets/community.jpg')} 
-          style={styles.coverPhoto}
-          resizeMode="cover"
-        />
-        <LinearGradient
-          colors={['rgba(0,0,0,0.7)', 'transparent']}
-          style={styles.coverOverlay}
-        />
+      <LinearGradient
+        colors={['#F8F3D9', '#EBE5C2']}
+        style={styles.gradientContainer}
+      >
+        {/* Decorative Background Elements */}
+        <View style={styles.decorativeCircle1} />
+        <View style={styles.decorativeCircle2} />
         
-        <View style={styles.communityInfo}>
-          <View style={styles.communityIconContainer}>
-            <MaterialCommunityIcons name="car-connected" size={40} color="#FFFFFF" />
-          </View>
-          <Text style={styles.communityTitle}>DriveSafe Community</Text>
-          <Text style={styles.communitySubtitle}>Crowdsourced road safety reports</Text>
-        </View>
-      </View>
-
-      {/* Reports List */}
-      <FlatList
-        data={reports}
-        renderItem={renderReportItem}
-        keyExtractor={item => item._id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#1DA1F2']}
-            tintColor="#1DA1F2"
-          />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          loading && page > 1 ? (
-            <ActivityIndicator size="small" color="#1DA1F2" style={styles.loadingMore} />
-          ) : null
-        }
-        ListEmptyComponent={
-          !loading && (
-            <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="forum" size={60} color="#E1E8ED" />
-              <Text style={styles.emptyText}>No reports yet</Text>
-              <Text style={styles.emptySubtext}>Community reports will appear here</Text>
+        {/* Header Section */}
+        <View style={styles.headerSection}>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoBackground}>
+              <MaterialCommunityIcons name="car-connected" size={40} color="#504B38" />
             </View>
-          )
-        }
-      />
+            <View style={styles.logoShadow} />
+          </View>
+          <Text style={styles.welcomeText}>DriveSafe Community</Text>
+          <Text style={styles.subtitle}>Crowdsourced road safety reports</Text>
+          
+          <View style={styles.decorativeLine}>
+            <View style={styles.lineSegment} />
+            <Ionicons name="car-sport" size={20} color="#B9B28A" />
+            <View style={styles.lineSegment} />
+          </View>
+        </View>
+
+        <FlatList
+          data={reports}
+          renderItem={renderReportItem}
+          keyExtractor={item => item._id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#504B38']}
+              tintColor="#504B38"
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loading && page > 1 ? (
+              <ActivityIndicator size="small" color="#504B38" style={styles.loadingMore} />
+            ) : null
+          }
+          ListEmptyComponent={
+            !loading && (
+              <View style={styles.emptyContainer}>
+                <MaterialCommunityIcons name="forum" size={60} color="#B9B28A" />
+                <Text style={styles.emptyText}>No reports yet</Text>
+                <Text style={styles.emptySubtext}>Community reports will appear here</Text>
+              </View>
+            )
+          }
+        />
+      </LinearGradient>
     </View>
   );
 };
@@ -199,86 +335,106 @@ const Forum = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F8FA',
   },
-  loadingContainer: {
+  gradientContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F8FA',
-  },
-  communityHeader: {
-    height: 180,
     position: 'relative',
-    marginBottom: 10,
   },
-  coverPhoto: {
-    width: '100%',
-    height: '100%',
-  },
-  coverOverlay: {
+  decorativeCircle1: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '100%',
+    top: -50,
+    right: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(185, 178, 138, 0.1)',
   },
-  communityInfo: {
+  decorativeCircle2: {
     position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
+    top: 100,
+    left: -30,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(80, 75, 56, 0.08)',
   },
-  communityIconContainer: {
-    backgroundColor: '#1DA1F2',
-    width: 60,
-    height: 60,
-    borderRadius: 12,
+  headerSection: {
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 30,
+  },
+  logoContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logoBackground: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: '#504B38',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 2,
   },
-  communityTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+  logoShadow: {
+    position: 'absolute',
+    top: 8,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(80, 75, 56, 0.1)',
+    zIndex: 1,
   },
-  communitySubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#504B38',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#B9B28A',
+    textAlign: 'center',
+    fontWeight: '400',
+    marginBottom: 20,
+  },
+  decorativeLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: 150,
+  },
+  lineSegment: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#B9B28A',
+    marginHorizontal: 15,
   },
   listContent: {
-    paddingBottom: 20,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
   },
   reportCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 15,
-    marginHorizontal: 15,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#504B38',
+    shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 15,
+    elevation: 5,
   },
   userInfo: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 15,
   },
   avatar: {
     marginRight: 12,
@@ -287,84 +443,149 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   username: {
-    fontWeight: 'bold',
-    color: '#14171A',
+    fontWeight: '600',
+    color: '#504B38',
     fontSize: 16,
   },
   postTime: {
-    color: '#657786',
+    color: '#B9B28A',
     fontSize: 13,
-    marginTop: 2,
+    marginTop: 4,
   },
   postText: {
     fontSize: 15,
     lineHeight: 22,
-    color: '#14171A',
-    marginBottom: 12,
+    color: '#504B38',
+    marginBottom: 15,
   },
   mediaContainer: {
-    borderRadius: 8,
+    borderRadius: 15,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 15,
     position: 'relative',
+    backgroundColor: '#F8F3D9',
+    shadowColor: '#504B38',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   postImage: {
     width: '100%',
     height: 200,
+    backgroundColor: '#F8F3D9',
   },
-  photoCountBadge: {
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 15,
+    borderRadius: 15,
+    overflow: 'hidden',
+    gap: 2,
+  },
+  gridPhoto: {
+    position: 'relative',
+  },
+  gridPhotoHalf: {
+    width: '49%',
+    height: 180,
+  },
+  gridPhotoQuarter: {
+    width: '49%',
+    height: 120,
+  },
+  gridPhotoMain: {
+    width: '100%',
+    height: 200,
+    marginBottom: 2,
+  },
+  gridPhotoSmall: {
+    width: '49%',
+    height: 120,
+  },
+  gridImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F8F3D9',
+  },
+  morePhotosOverlay: {
     position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(80, 75, 56, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  photoCountText: {
+  morePhotosText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(248, 243, 217, 0.8)',
   },
   postFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 10,
   },
   reportMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   locationText: {
-    color: '#657786',
+    color: '#B9B28A',
     fontSize: 13,
     marginLeft: 5,
+    flex: 1,
   },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+  photoIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  statusText: {
-    color: '#FFFFFF',
+  photoCountSmall: {
+    color: '#B9B28A',
     fontSize: 12,
-    fontWeight: '500',
+    marginLeft: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F3D9',
+  },
+  loadingText: {
+    marginTop: 15,
+    color: '#504B38',
+    fontSize: 16,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    marginTop: 50,
   },
   emptyText: {
-    color: '#14171A',
+    color: '#504B38',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginTop: 15,
     textAlign: 'center',
   },
   emptySubtext: {
-    color: '#657786',
+    color: '#B9B28A',
     fontSize: 14,
     marginTop: 5,
     textAlign: 'center',

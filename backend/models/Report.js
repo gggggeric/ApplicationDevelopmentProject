@@ -24,11 +24,6 @@ const reportSchema = new mongoose.Schema({
   submittedAt: {
     type: Date,
     default: Date.now
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'reviewed', 'resolved'],
-    default: 'pending'
   }
 }, { 
   timestamps: true,
