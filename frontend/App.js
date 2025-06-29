@@ -13,6 +13,7 @@ import ProfileScreen from './Pages/User/Profile';
 import DrivingQuizApp from './Pages/DrivingQuiz/DrivingQuiz';
 import WeatherScreen from './Pages/Weather/Weather';
 import Report from './Pages/Community/Report';
+import Forum from './Pages/Community/Forum';
 const Stack = createStackNavigator();
 
 const theme = {
@@ -39,6 +40,11 @@ export default function App() {
             <Stack.Screen 
             name="Weather" 
             component={WeatherScreen} a
+            options={{ headerShown: false }} 
+          />
+           <Stack.Screen 
+            name="Forum" 
+            component={Forum} a
             options={{ headerShown: false }} 
           />
             <Stack.Screen 

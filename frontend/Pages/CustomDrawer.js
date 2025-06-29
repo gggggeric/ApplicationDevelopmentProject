@@ -79,7 +79,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
   ];
 
   const communityFeatures = [
-    { id: '10', title: 'Community Forum', icon: 'chatbubbles-outline', route: 'CommunityForum',
+    { id: '10', title: 'Community Forum', icon: 'chatbubbles-outline', route: 'Forum',
       description: 'Share experiences and get advice from experts' },
     { id: '11', title: 'Report Unsafe Driving', icon: 'alert-circle-outline', route: 'Report',
       description: 'Anonymously report reckless driving' },

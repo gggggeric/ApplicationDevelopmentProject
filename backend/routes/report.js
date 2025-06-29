@@ -90,4 +90,56 @@ router.post('/submit', upload.array('photos', 5), async (req, res) => {
   }
 });
 
+
+router.get('/forum', async (req, res) => {
+  try {
+    // Get pagination parameters from query
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get sorting parameters
+    const sortBy = req.query.sortBy || 'submittedAt';
+    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+
+    // Get filter parameters
+    const status = req.query.status;
+    const location = req.query.location;
+
+    // Build query
+    const query = {};
+    if (status) query.status = status;
+    if (location) query.location = new RegExp(location, 'i');
+
+    // Get total count for pagination
+    const total = await Report.countDocuments(query);
+
+    // Fetch reports with pagination and sorting
+    const reports = await Report.find(query)
+      .sort({ [sortBy]: sortOrder })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: reports,
+      pagination: {
+        total,
+        page,
+        pages: Math.ceil(total / limit),
+        limit
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching reports:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch reports',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;
