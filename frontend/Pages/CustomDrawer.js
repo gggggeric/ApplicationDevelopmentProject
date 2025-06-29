@@ -12,7 +12,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToast } from '../utils/toast';
 import API_BASE_URL from '../utils/api';
@@ -22,22 +22,76 @@ const { height } = Dimensions.get('window');
 const CustomDrawer = ({ navigation, onClose }) => {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('learning');
 
-  const menuItems = [
-    { id: '1', title: 'Home', icon: 'home-outline', route: 'Home' },
-    { id: '2', title: 'My Courses', icon: 'book-outline', route: 'MyCourses' },
-    { id: '3', title: 'Categories', icon: 'grid-outline', route: 'Categories' },
-    { id: '4', title: 'Featured', icon: 'star-outline', route: 'Featured' },
-    { id: '5', title: 'Instructors', icon: 'people-outline', route: 'Instructors' },
-    { id: '6', title: 'Search', icon: 'search-outline', route: 'Search' },
-    { id: '7', title: 'Favorites', icon: 'heart-outline', route: 'Favorites' },
-    { id: '8', title: 'Downloads', icon: 'download-outline', route: 'Downloads' },
+  const categories = [
+    {
+      id: 'learning',
+      title: 'Learning',
+      icon: 'book-outline',
+      color: '#504B38'
+    },
+    {
+      id: 'safety',
+      title: 'Safety',
+      icon: 'shield-checkmark-outline',
+      color: '#504B38'
+    },
+    {
+      id: 'tools',
+      title: 'Tools',
+      icon: 'construct-outline',
+      color: '#504B38'
+    },
+    {
+      id: 'community',
+      title: 'Community',
+      icon: 'people-outline',
+      color: '#504B38'
+    }
+  ];
+
+  const learningFeatures = [
+    { id: '1', title: 'Interactive Lessons', icon: 'book-outline', route: 'InteractiveLessons',
+      description: 'Traffic signs, defensive driving, road etiquette and violations' },
+    { id: '2', title: 'Driving Quizzes', icon: 'help-circle-outline', route: 'DrivingQuiz',
+      description: 'Test your knowledge with interactive quizzes' },
+    { id: '3', title: 'Driving Simulations', icon: 'car-sport-outline', route: 'DrivingSimulations',
+      description: 'Practice scenarios in a risk-free environment' }
+  ];
+
+  const safetyFeatures = [
+    { id: '4', title: 'Road Safety Game', icon: 'game-controller-outline', route: 'SafetyGame',
+      description: 'Gamified challenges with increasing difficulty' },
+    { id: '5', title: 'Safety Alerts', icon: 'notifications-outline', route: 'SafetyAlerts',
+      description: 'Real-time accident and road condition alerts' },
+    { id: '6', title: 'Emergency Tips', icon: 'warning-outline', route: 'Weather',
+      description: 'Weather-specific driving guidance' }
+  ];
+
+  const toolsFeatures = [
+    { id: '7', title: 'Practice Scheduler', icon: 'calendar-outline', route: 'PracticeScheduler',
+      description: 'Set reminders for driving practice sessions' },
+    { id: '8', title: 'Wellness Check', icon: 'heart-circle-outline', route: 'WellnessCheck',
+      description: 'Daily mental and physical readiness checklist' },
+    { id: '9', title: 'Vehicle Maintenance', icon: 'settings-outline', route: 'VehicleMaintenance',
+      description: 'Tips for inspection and safe car handling' }
+  ];
+
+  const communityFeatures = [
+    { id: '10', title: 'Community Forum', icon: 'chatbubbles-outline', route: 'CommunityForum',
+      description: 'Share experiences and get advice from experts' },
+    { id: '11', title: 'Report Unsafe Driving', icon: 'alert-circle-outline', route: 'Report',
+      description: 'Anonymously report reckless driving' },
+    { id: '12', title: 'Certification', icon: 'ribbon-outline', route: 'Certification',
+      description: 'Earn badges for completing modules' }
   ];
 
   const bottomItems = [
-    { id: '9', title: 'Settings', icon: 'settings-outline', route: 'Settings' },
-    { id: '10', title: 'Help & Support', icon: 'help-circle-outline', route: 'Support' },
-    { id: '11', title: 'About', icon: 'information-circle-outline', route: 'About' },
+    { id: '13', title: 'Parental Monitoring', icon: 'people-circle-outline', route: 'ParentalMonitoring' },
+    { id: '14', title: 'Settings', icon: 'settings-outline', route: 'Settings' },
+    { id: '15', title: 'Help & Support', icon: 'help-circle-outline', route: 'Support' },
+    { id: '16', title: 'About', icon: 'information-circle-outline', route: 'About' },
   ];
 
   const fetchProfile = async () => {
@@ -115,23 +169,75 @@ const CustomDrawer = ({ navigation, onClose }) => {
     }
   };
 
-  const renderMenuItem = (item, isBottom = false) => (
+  const renderCategoryButton = (category) => (
+    <TouchableOpacity
+      key={category.id}
+      style={[
+        styles.categoryButton,
+        activeCategory === category.id && styles.activeCategoryButton
+      ]}
+      onPress={() => setActiveCategory(category.id)}
+    >
+      <Ionicons 
+        name={category.icon} 
+        size={24} 
+        color={activeCategory === category.id ? '#F8F3D9' : '#504B38'} 
+      />
+      <Text style={[
+        styles.categoryText,
+        activeCategory === category.id && styles.activeCategoryText
+      ]}>
+        {category.title}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderFeatureItem = (item) => (
     <TouchableOpacity
       key={item.id}
-      style={[styles.menuItem, isBottom && styles.bottomMenuItem]}
+      style={styles.featureItem}
       onPress={() => handleNavigation(item.route)}
       activeOpacity={0.7}
     >
-      <Ionicons name={item.icon} size={24} color="#667eea" />
-      <Text style={styles.menuText}>{item.title}</Text>
-      <Ionicons name="chevron-forward" size={20} color="#ccc" />
+      <View style={styles.featureIconContainer}>
+        <Ionicons name={item.icon} size={24} color="#504B38" />
+      </View>
+      <View style={styles.featureTextContainer}>
+        <Text style={styles.featureTitle}>{item.title}</Text>
+        {item.description && (
+          <Text style={styles.featureDescription}>{item.description}</Text>
+        )}
+      </View>
+      <Ionicons name="chevron-forward" size={20} color="#B9B28A" />
     </TouchableOpacity>
   );
+
+  const renderBottomItem = (item) => (
+    <TouchableOpacity
+      key={item.id}
+      style={styles.bottomItem}
+      onPress={() => handleNavigation(item.route)}
+      activeOpacity={0.7}
+    >
+      <Ionicons name={item.icon} size={22} color="#504B38" />
+      <Text style={styles.bottomText}>{item.title}</Text>
+    </TouchableOpacity>
+  );
+
+  const getActiveFeatures = () => {
+    switch (activeCategory) {
+      case 'learning': return learningFeatures;
+      case 'safety': return safetyFeatures;
+      case 'tools': return toolsFeatures;
+      case 'community': return communityFeatures;
+      default: return learningFeatures;
+    }
+  };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#667eea" />
+        <ActivityIndicator size="large" color="#504B38" />
       </SafeAreaView>
     );
   }
@@ -148,15 +254,17 @@ const CustomDrawer = ({ navigation, onClose }) => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header Section */}
         <LinearGradient
-          colors={['#667eea', '#764ba2']}
+          colors={['#504B38', '#B9B28A']}
           style={styles.header}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
           <TouchableOpacity
             style={styles.closeButton}
             onPress={onClose}
             activeOpacity={0.7}
           >
-            <Ionicons name="close" size={28} color="#fff" />
+            <Ionicons name="close" size={28} color="#F8F3D9" />
           </TouchableOpacity>
 
           <View style={styles.profileSection}>
@@ -190,50 +298,69 @@ const CustomDrawer = ({ navigation, onClose }) => {
           </View>
         </LinearGradient>
 
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          <View style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>Main Menu</Text>
-            {menuItems.map(item => renderMenuItem(item))}
-          </View>
+        {/* Category Selector */}
+        <View style={styles.categoryContainer}>
+          {categories.map(renderCategoryButton)}
+        </View>
 
-          {/* Special Offer Banner */}
-          <TouchableOpacity
-            style={styles.offerBanner}
-            onPress={() => handleNavigation('SpecialOffer')}
-            activeOpacity={0.8}
+        {/* Features Section */}
+        <View style={styles.featuresContainer}>
+          <Text style={styles.sectionTitle}>
+            {activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)} Features
+          </Text>
+          {getActiveFeatures().map(renderFeatureItem)}
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.quickActionsContainer}>
+          <TouchableOpacity 
+            style={styles.quickAction}
+            onPress={() => handleNavigation('EmergencyTips')}
           >
             <LinearGradient
-              colors={['rgba(102, 126, 234, 0.1)', 'rgba(118, 75, 162, 0.1)']}
-              style={styles.offerGradient}
+              colors={['#504B38', '#B9B28A']}
+              style={styles.quickActionIcon}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
-              <View style={styles.offerContent}>
-                <Ionicons name="gift" size={32} color="#667eea" />
-                <View style={styles.offerText}>
-                  <Text style={styles.offerTitle}>Premium Access</Text>
-                  <Text style={styles.offerSubtitle}>Upgrade to unlock all features</Text>
-                </View>
-                <Ionicons name="arrow-forward" size={20} color="#667eea" />
-              </View>
+              <Ionicons name="warning" size={24} color="#F8F3D9" />
             </LinearGradient>
+            <Text style={styles.quickActionText}>Emergency Guide</Text>
           </TouchableOpacity>
-
-          {/* Bottom Menu Items */}
-          <View style={styles.bottomSection}>
-            <View style={styles.divider} />
-            {bottomItems.map(item => renderMenuItem(item, true))}
-          </View>
-
-          {/* Logout Button */}
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-            activeOpacity={0.7}
+          
+          <TouchableOpacity 
+            style={styles.quickAction}
+            onPress={() => handleNavigation('ReportDriving')}
           >
-            <Ionicons name="log-out-outline" size={24} color="#ff4757" />
-            <Text style={styles.logoutText}>Logout</Text>
+            <LinearGradient
+              colors={['#504B38', '#B9B28A']}
+              style={styles.quickActionIcon}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <MaterialIcons name="report-problem" size={24} color="#F8F3D9" />
+            </LinearGradient>
+            <Text style={styles.quickActionText}>Report Issue</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Bottom Menu Items */}
+        <View style={styles.bottomSection}>
+          <View style={styles.divider} />
+          <View style={styles.bottomItemsContainer}>
+            {bottomItems.map(renderBottomItem)}
+          </View>
+        </View>
+
+        {/* Logout Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="log-out-outline" size={24} color="#504B38" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -242,13 +369,13 @@ const CustomDrawer = ({ navigation, onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F8F3D9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff'
+    backgroundColor: '#F8F3D9'
   },
   header: {
     paddingBottom: 25,
@@ -271,7 +398,7 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 35,
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(248, 243, 217, 0.3)',
   },
   profileInfo: {
     marginLeft: 15,
@@ -280,12 +407,12 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#F8F3D9',
     marginBottom: 5,
   },
   profileEmail: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(248, 243, 217, 0.8)',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -300,86 +427,137 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#F8F3D9',
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(248, 243, 217, 0.8)',
   },
   statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(248, 243, 217, 0.3)',
   },
-  menuContainer: {
-    flex: 1,
-    paddingTop: 20,
+  categoryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    marginTop: 10,
   },
-  menuSection: {
-    paddingHorizontal: 20,
+  categoryButton: {
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 10,
+    width: '23%',
+    backgroundColor: '#EBE5C2',
+  },
+  activeCategoryButton: {
+    backgroundColor: '#504B38',
+  },
+  categoryText: {
+    fontSize: 12,
+    marginTop: 5,
+    fontWeight: '500',
+    color: '#504B38',
+  },
+  activeCategoryText: {
+    color: '#F8F3D9',
+  },
+  featuresContainer: {
+    paddingHorizontal: 15,
+    marginTop: 10,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#504B38',
     marginBottom: 15,
-    marginTop: 10,
+    marginLeft: 5,
   },
-  menuItem: {
+  featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 15,
     paddingHorizontal: 10,
-    marginBottom: 5,
+    marginBottom: 10,
     borderRadius: 12,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EBE5C2',
   },
-  bottomMenuItem: {
-    backgroundColor: 'transparent',
-  },
-  menuText: {
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 15,
-    flex: 1,
-    fontWeight: '500',
-  },
-  offerBanner: {
-    marginHorizontal: 20,
-    marginVertical: 20,
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  offerGradient: {
-    padding: 15,
-  },
-  offerContent: {
-    flexDirection: 'row',
+  featureIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(80, 75, 56, 0.1)',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 15,
   },
-  offerText: {
+  featureTextContainer: {
     flex: 1,
-    marginLeft: 15,
   },
-  offerTitle: {
+  featureTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#667eea',
-    marginBottom: 2,
+    fontWeight: '500',
+    color: '#504B38',
   },
-  offerSubtitle: {
+  featureDescription: {
     fontSize: 12,
-    color: '#666',
+    color: '#B9B28A',
+    marginTop: 3,
+  },
+  quickActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 15,
+    marginTop: 15,
+  },
+  quickAction: {
+    alignItems: 'center',
+    width: '45%',
+  },
+  quickActionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#504B38',
+    textAlign: 'center',
   },
   bottomSection: {
-    paddingHorizontal: 20,
     marginTop: 20,
   },
   divider: {
     height: 1,
-    backgroundColor: '#eee',
-    marginBottom: 15,
+    backgroundColor: '#EBE5C2',
+    marginHorizontal: 20,
+  },
+  bottomItemsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 15,
+    paddingTop: 15,
+  },
+  bottomItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '50%',
+    paddingVertical: 12,
+    paddingHorizontal: 5,
+  },
+  bottomText: {
+    fontSize: 14,
+    color: '#504B38',
+    marginLeft: 10,
   },
   logoutButton: {
     flexDirection: 'row',
@@ -390,13 +568,14 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 30,
     borderRadius: 12,
-    backgroundColor: '#fff2f2',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#ffebee',
+    borderColor: '#EBE5C2',
+    justifyContent: 'center',
   },
   logoutText: {
     fontSize: 16,
-    color: '#ff4757',
+    color: '#504B38',
     marginLeft: 15,
     fontWeight: '600',
   },

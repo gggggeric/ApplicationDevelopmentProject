@@ -9,7 +9,10 @@ import Login from './Pages/Auth/Login';
 import Register from './Pages/Auth/Register';
 import Home from './Pages/Home';
 import CustomDrawer from './Pages/CustomDrawer';
-
+import ProfileScreen from './Pages/User/Profile';
+import DrivingQuizApp from './Pages/DrivingQuiz/DrivingQuiz';
+import WeatherScreen from './Pages/Weather/Weather';
+import Report from './Pages/Community/Report';
 const Stack = createStackNavigator();
 
 const theme = {
@@ -30,7 +33,24 @@ export default function App() {
         <Stack.Navigator initialRouteName="Login">
           <Stack.Screen 
             name="Login" 
-            component={Login} 
+            component={Login} a
+            options={{ headerShown: false }} 
+          />
+            <Stack.Screen 
+            name="Weather" 
+            component={WeatherScreen} a
+            options={{ headerShown: false }} 
+          />
+            <Stack.Screen 
+            name="Report" 
+            component={Report} a
+            options={{ headerShown: false }} 
+          />
+
+
+           <Stack.Screen 
+            name="DrivingQuiz" 
+            component={DrivingQuizApp} 
             options={{ headerShown: false }} 
           />
           <Stack.Screen 
@@ -41,6 +61,11 @@ export default function App() {
             <Stack.Screen 
             name="Home" 
             component={Home} 
+            options={{ headerShown: false }} 
+          />
+           <Stack.Screen 
+            name="Profile" 
+            component={ProfileScreen} 
             options={{ headerShown: false }} 
           />
         </Stack.Navigator>

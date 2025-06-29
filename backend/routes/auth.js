@@ -25,8 +25,6 @@ const storage = new CloudinaryStorage({
 });
 
 const upload = multer({ storage });
-
-// Register with optional profile photo
 router.post('/register', upload.single('profilePhoto'), async (req, res) => {
     try {
         const { name, email, password, address } = req.body;
