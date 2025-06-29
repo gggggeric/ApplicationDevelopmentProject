@@ -65,14 +65,16 @@ const CustomDrawer = ({ navigation, onClose }) => {
       description: 'Weather-specific driving guidance' }
   ];
 
-  const toolsFeatures = [
-    { id: '7', title: 'Practice Scheduler', icon: 'calendar-outline', route: 'PracticeScheduler',
-      description: 'Set reminders for driving practice sessions' },
-    { id: '8', title: 'Wellness Check', icon: 'heart-circle-outline', route: 'WellnessCheck',
-      description: 'Daily mental and physical readiness checklist' },
-    { id: '9', title: 'Vehicle Maintenance', icon: 'settings-outline', route: 'VehicleMaintenance',
-      description: 'Tips for inspection and safe car handling' }
-  ];
+const toolsFeatures = [
+  { id: '7', title: 'Practice Scheduler', icon: 'calendar-outline', route: 'PracticeScheduler',
+    description: 'Set reminders for driving practice sessions' },
+  { id: '8', title: 'Wellness Check', icon: 'heart-circle-outline', route: 'WellnessCheck',
+    description: 'Daily mental and physical readiness checklist' },
+  { id: '9', title: 'Vehicle Maintenance', icon: 'settings-outline', route: 'VehicleMaintenance',
+    description: 'Tips for inspection and safe car handling' },
+  { id: '17', title: 'AI Driving Assistant', icon: 'chatbubble-ellipses-outline', route: 'AiChatBot',
+    description: 'Get instant answers to your driving questions' }
+];
 
   const communityFeatures = [
     { id: '10', title: 'Community Forum', icon: 'chatbubbles-outline', route: 'Forum',

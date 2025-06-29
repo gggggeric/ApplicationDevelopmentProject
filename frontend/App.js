@@ -14,6 +14,7 @@ import DrivingQuizApp from './Pages/DrivingQuiz/DrivingQuiz';
 import WeatherScreen from './Pages/Safety/Weather';
 import Report from './Pages/Community/Report';
 import Forum from './Pages/Community/Forum';
+import AIChatbot from './Pages/Tools/AiChatBot';
 const Stack = createStackNavigator();
 
 const theme = {
@@ -35,6 +36,11 @@ export default function App() {
           <Stack.Screen 
             name="Login" 
             component={Login} a
+            options={{ headerShown: false }} 
+          />
+           <Stack.Screen 
+            name="AiChatBot" 
+            component={AIChatbot} a
             options={{ headerShown: false }} 
           />
             <Stack.Screen 
