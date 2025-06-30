@@ -68,7 +68,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
 const toolsFeatures = [
   { id: '7', title: 'Practice Scheduler', icon: 'calendar-outline', route: 'PracticeScheduler',
     description: 'Set reminders for driving practice sessions' },
-  { id: '8', title: 'Wellness Check', icon: 'heart-circle-outline', route: 'WellnessCheck',
+  { id: '8', title: 'Wellness Check', icon: 'heart-circle-outline', route: 'DriverWellness',
     description: 'Daily mental and physical readiness checklist' },
   { id: '9', title: 'Vehicle Maintenance', icon: 'settings-outline', route: 'VehicleMaintenance',
     description: 'Tips for inspection and safe car handling' },
