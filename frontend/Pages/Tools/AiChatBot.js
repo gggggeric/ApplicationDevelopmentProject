@@ -9,7 +9,8 @@ import {
   Platform,
   ScrollView,
   SafeAreaView,
-  Keyboard
+  Keyboard,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { showToast } from '../../utils/toast';
@@ -27,61 +28,61 @@ const AIChatbot = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef();
 
-const handleSend = async () => {
-  if (!input.trim()) return;
-  
-  const userMessage = { 
-    text: input, 
-    sender: 'user',
-    timestamp: new Date() 
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    
+    const userMessage = { 
+      text: input, 
+      sender: 'user',
+      timestamp: new Date() 
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+    Keyboard.dismiss();
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: input,
+          history: messages
+            .filter(msg => msg.sender !== 'system')
+            .map(msg => ({
+              text: msg.text,
+              sender: msg.sender
+            }))
+        }),
+      });
+      
+      const data = await response.json();
+      
+      const botMessage = { 
+        text: data.response, 
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      showToast('error', 'Chat Error', 'Failed to get response from AI');
+      
+      const errorMessage = { 
+        text: "Sorry, I'm having trouble responding. Please try again later.", 
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
-  setMessages(prev => [...prev, userMessage]);
-  setInput('');
-  setIsLoading(true);
-  Keyboard.dismiss();
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/ai/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: input,
-        history: messages
-          .filter(msg => msg.sender !== 'system') // Exclude system messages
-          .map(msg => ({
-            text: msg.text,
-            sender: msg.sender
-          }))
-      }),
-    });
-    
-    const data = await response.json();
-    
-    const botMessage = { 
-      text: data.response, 
-      sender: 'bot',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, botMessage]);
-  } catch (error) {
-    console.error('Chat error:', error);
-    showToast('error', 'Chat Error', 'Failed to get response from AI');
-    
-    // Add error message to chat
-    const errorMessage = { 
-      text: "Sorry, I'm having trouble responding. Please try again later.", 
-      sender: 'bot',
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, errorMessage]);
-  } finally {
-    setIsLoading(false);
-  }
-};
+
   useEffect(() => {
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollToEnd({ animated: true });
@@ -107,24 +108,41 @@ const handleSend = async () => {
           <View 
             key={index} 
             style={[
-              styles.messageBubble,
-              message.sender === 'user' ? styles.userBubble : styles.botBubble
+              styles.messageContainer,
+              message.sender === 'user' ? styles.userContainer : styles.botContainer
             ]}
           >
-            <Text style={[
-              styles.messageText,
-              message.sender === 'user' ? styles.userText : styles.botText
+            {message.sender === 'bot' && (
+              <Image 
+                source={require('../../assets/chatbotProfile.png')}
+                style={styles.botAvatar}
+              />
+            )}
+            <View style={[
+              styles.messageBubble,
+              message.sender === 'user' ? styles.userBubble : styles.botBubble
             ]}>
-              {message.text}
-            </Text>
-            <Text style={styles.timestamp}>
-              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Text>
+              <Text style={[
+                styles.messageText,
+                message.sender === 'user' ? styles.userText : styles.botText
+              ]}>
+                {message.text}
+              </Text>
+              <Text style={styles.timestamp}>
+                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            </View>
           </View>
         ))}
         {isLoading && (
-          <View style={[styles.messageBubble, styles.botBubble]}>
-            <Text style={styles.messageText}>Thinking...</Text>
+          <View style={[styles.messageContainer, styles.botContainer]}>
+            <Image 
+              source={require('../../assets/chatbotProfile.png')}
+              style={styles.botAvatar}
+            />
+            <View style={[styles.messageBubble, styles.botBubble]}>
+              <Text style={styles.messageText}>Thinking...</Text>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -179,20 +197,34 @@ const styles = StyleSheet.create({
     padding: 15,
     paddingBottom: 80,
   },
+  messageContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 10,
+  },
+  botContainer: {
+    alignSelf: 'flex-start',
+  },
+  userContainer: {
+    alignSelf: 'flex-end',
+  },
+  botAvatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 16,
+    marginRight: 8,
+  },
   messageBubble: {
     maxWidth: '80%',
     padding: 12,
     borderRadius: 12,
-    marginBottom: 10,
   },
   botBubble: {
-    alignSelf: 'flex-start',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#EBE5C2',
   },
   userBubble: {
-    alignSelf: 'flex-end',
     backgroundColor: '#504B38',
   },
   messageText: {
