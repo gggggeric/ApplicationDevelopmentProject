@@ -10,23 +10,69 @@ import {
   ScrollView,
   SafeAreaView,
   Keyboard,
-  Image
+  Image,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToast } from '../../utils/toast';
 import API_BASE_URL from '../../utils/api';
 
 const AIChatbot = ({ navigation }) => {
-  const [messages, setMessages] = useState([
-    { 
-      text: "Hello! I'm your AI Driving Assistant. How can I help you today?", 
-      sender: 'bot',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const scrollViewRef = useRef();
+
+  // Load chat history on component mount
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        if (!token) {
+          setMessages([getWelcomeMessage()]);
+          setIsLoadingHistory(false);
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/ai/chat/history`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const history = await response.json();
+          if (history.length > 0) {
+            const formattedMessages = history.map(msg => ({
+              text: msg.content,
+              sender: msg.role === 'user' ? 'user' : 'bot',
+              timestamp: new Date(msg.createdAt || Date.now())
+            }));
+            setMessages([getWelcomeMessage(), ...formattedMessages]);
+          } else {
+            setMessages([getWelcomeMessage()]);
+          }
+        } else {
+          setMessages([getWelcomeMessage()]);
+        }
+      } catch (error) {
+        console.error('Failed to load chat history:', error);
+        setMessages([getWelcomeMessage()]);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    loadChatHistory();
+  }, []);
+
+  const getWelcomeMessage = () => ({
+    text: "Hello! I'm your AI Driving Assistant. How can I help you today?",
+    sender: 'bot',
+    timestamp: new Date()
+  });
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -43,21 +89,19 @@ const AIChatbot = ({ navigation }) => {
     Keyboard.dismiss();
     
     try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) throw new Error('Not authenticated');
+
       const response = await fetch(`${API_BASE_URL}/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          message: input,
-          history: messages
-            .filter(msg => msg.sender !== 'system')
-            .map(msg => ({
-              text: msg.text,
-              sender: msg.sender
-            }))
-        }),
+        body: JSON.stringify({ message: input }),
       });
+      
+      if (!response.ok) throw new Error('Failed to get response');
       
       const data = await response.json();
       
@@ -70,7 +114,7 @@ const AIChatbot = ({ navigation }) => {
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
       console.error('Chat error:', error);
-      showToast('error', 'Chat Error', 'Failed to get response from AI');
+      showToast('error', 'Chat Error', error.message || 'Failed to get response from AI');
       
       const errorMessage = { 
         text: "Sorry, I'm having trouble responding. Please try again later.", 
@@ -84,10 +128,20 @@ const AIChatbot = ({ navigation }) => {
   };
 
   useEffect(() => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollToEnd({ animated: true });
+    if (scrollViewRef.current && messages.length > 0) {
+      setTimeout(() => {
+        scrollViewRef.current.scrollToEnd({ animated: true });
+      }, 100);
     }
   }, [messages]);
+
+  if (isLoadingHistory) {
+    return (
+      <SafeAreaView style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#504B38" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -141,7 +195,11 @@ const AIChatbot = ({ navigation }) => {
               style={styles.botAvatar}
             />
             <View style={[styles.messageBubble, styles.botBubble]}>
-              <Text style={styles.messageText}>Thinking...</Text>
+              <View style={styles.typingIndicator}>
+                <View style={styles.typingDot} />
+                <View style={styles.typingDot} />
+                <View style={styles.typingDot} />
+              </View>
             </View>
           </View>
         )}
@@ -158,17 +216,22 @@ const AIChatbot = ({ navigation }) => {
           placeholder="Ask me anything about driving..."
           placeholderTextColor="#B9B28A"
           multiline
+          editable={!isLoading}
         />
         <TouchableOpacity 
           style={styles.sendButton} 
           onPress={handleSend}
-          disabled={isLoading}
+          disabled={isLoading || !input.trim()}
         >
-          <Ionicons 
-            name="send" 
-            size={24} 
-            color={input.trim() ? '#504B38' : '#B9B28A'} 
-          />
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#B9B28A" />
+          ) : (
+            <Ionicons 
+              name="send" 
+              size={24} 
+              color={input.trim() ? '#504B38' : '#B9B28A'} 
+            />
+          )}
         </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -179,6 +242,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F3D9',
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -209,9 +276,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   botAvatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 8,
   },
   messageBubble: {
@@ -266,6 +333,18 @@ const styles = StyleSheet.create({
   sendButton: {
     marginLeft: 10,
     padding: 10,
+  },
+  typingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#504B38',
+    marginHorizontal: 2,
   },
 });
 
