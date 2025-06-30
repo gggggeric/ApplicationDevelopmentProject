@@ -6,6 +6,11 @@ const chatHistorySchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  conversation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Conversation',
+    required: true
+  },
   content: {
     type: String,
     required: true
@@ -21,8 +26,7 @@ const chatHistorySchema = new mongoose.Schema({
   }
 });
 
-// Indexes for better performance
-chatHistorySchema.index({ user: 1 });
-chatHistorySchema.index({ createdAt: -1 });
+// Add indexes for better performance
+chatHistorySchema.index({ conversation: 1, createdAt: 1 });
 
 module.exports = mongoose.model('ChatHistory', chatHistorySchema);
