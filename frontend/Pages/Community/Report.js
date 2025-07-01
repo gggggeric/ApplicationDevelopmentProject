@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
   TextInput, ScrollView, Alert, Image,
-  Platform, ActivityIndicator, Dimensions
+  Platform, ActivityIndicator, Dimensions, ActionSheetIOS,
+  Animated, Easing
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,23 +11,124 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../../utils/api';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const Report = ({ navigation }) => {
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [photos, setPhotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Animation values
+  const fadeAnim = useState(new Animated.Value(0))[0];
+  const scaleAnim = useState(new Animated.Value(0.9))[0];
+  const slideAnim = useState(new Animated.Value(50))[0];
 
-  // Request media library permissions
+  // Request media library and camera permissions
   useEffect(() => {
     (async () => {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
+      const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (mediaStatus !== 'granted') {
         Alert.alert('Permission required', 'Need media library permission to select photos');
       }
+      if (cameraStatus !== 'granted') {
+        Alert.alert('Permission required', 'Need camera permission to take photos');
+      }
     })();
+
+    // Entrance animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
+
+  const showImagePickerOptions = () => {
+    if (photos.length >= 5) {
+      Alert.alert('Limit Reached', 'You can only add up to 5 photos.');
+      return;
+    }
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Take Photo', 'Choose from Library'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            takePhoto();
+          } else if (buttonIndex === 2) {
+            pickImage();
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        'Add Photo',
+        'Choose an option',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Take Photo', onPress: () => takePhoto() },
+          { text: 'Choose from Library', onPress: () => pickImage() },
+        ]
+      );
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        const newPhoto = {
+          uri: result.assets[0].uri,
+          type: 'image/jpeg',
+          name: `photo_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`
+        };
+        setPhotos(prev => [...prev, newPhoto]);
+        
+        // Animate new photo addition
+        Animated.spring(scaleAnim, {
+          toValue: 1.05,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }).start();
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
 
   const pickImage = async () => {
     try {
@@ -34,7 +136,7 @@ const Report = ({ navigation }) => {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.7,
+        quality: 0.8,
         allowsMultipleSelection: true,
         selectionLimit: 5 - photos.length
       });
@@ -54,21 +156,48 @@ const Report = ({ navigation }) => {
   };
 
   const removePhoto = (index) => {
-    setPhotos(prev => prev.filter((_, i) => i !== index));
+    Alert.alert(
+      'Remove Photo',
+      'Are you sure you want to remove this photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Remove', 
+          style: 'destructive',
+          onPress: () => setPhotos(prev => prev.filter((_, i) => i !== index))
+        }
+      ]
+    );
+  };
+
+  const validateForm = () => {
+    if (!description.trim()) {
+      Alert.alert('Missing Information', 'Please provide a description of what happened.');
+      return false;
+    }
+    if (!location.trim()) {
+      Alert.alert('Missing Information', 'Please specify where this occurred.');
+      return false;
+    }
+    if (photos.length === 0) {
+      Alert.alert('Missing Information', 'Please add at least one photo as evidence.');
+      return false;
+    }
+    return true;
   };
 
   const submitReport = async () => {
     try {
-      // Validation
-      if (!description.trim()) throw new Error('Description is required');
-      if (!location.trim()) throw new Error('Location is required');
-      if (photos.length === 0) throw new Error('At least one photo is required');
+      if (!validateForm()) return;
 
       setIsSubmitting(true);
       
       // Get token
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) throw new Error('Please login to submit reports');
+      if (!token) {
+        Alert.alert('Authentication Error', 'Please login to submit reports');
+        return;
+      }
 
       // Prepare FormData
       const formData = new FormData();
@@ -76,7 +205,7 @@ const Report = ({ navigation }) => {
       formData.append('location', location.trim());
 
       // Add photos to FormData
-      photos.forEach((photo) => {
+      photos.forEach((photo, index) => {
         formData.append('photos', {
           uri: Platform.OS === 'android' ? photo.uri : photo.uri.replace('file://', ''),
           type: photo.type,
@@ -100,119 +229,222 @@ const Report = ({ navigation }) => {
         throw new Error(data.message || 'Submission failed');
       }
 
-      Alert.alert(
-        'Success',
-        'Report submitted successfully!',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-
-      // Reset form
-      setDescription('');
-      setLocation('');
-      setPhotos([]);
+      // Show success animation
+      setShowSuccess(true);
+      
+      setTimeout(() => {
+        Alert.alert(
+          'Success!',
+          'Your report has been submitted successfully. Thank you for helping make our community safer.',
+          [{ 
+            text: 'OK', 
+            onPress: () => {
+              // Reset form
+              setDescription('');
+              setLocation('');
+              setPhotos([]);
+              setShowSuccess(false);
+              navigation.goBack();
+            }
+          }]
+        );
+      }, 1500);
 
     } catch (error) {
       console.error('Submission error:', error);
-      Alert.alert('Error', error.message || 'Failed to submit report');
+      Alert.alert(
+        'Submission Failed', 
+        error.message || 'Unable to submit report. Please check your connection and try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const isFormValid = description.trim() && location.trim() && photos.length > 0;
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Decorative Background Elements */}
-      <View style={styles.decorativeCircle1} />
-      <View style={styles.decorativeCircle2} />
+    <View style={styles.container}>
+      {/* Animated decorative background elements */}
+      <Animated.View style={[
+        styles.decorativeCircle1,
+        { opacity: fadeAnim }
+      ]} />
+      <Animated.View style={[
+        styles.decorativeCircle2,
+        { opacity: fadeAnim }
+      ]} />
       
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#504B38" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Submit Report</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <View style={styles.form}>
-        <Text style={styles.label}>Description *</Text>
-        <TextInput
-          style={styles.textInput}
-          multiline
-          placeholder="Describe what happened..."
-          placeholderTextColor="#B9B28A"
-          value={description}
-          onChangeText={setDescription}
-        />
-
-        <Text style={styles.label}>Location *</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Where did this occur?"
-          placeholderTextColor="#B9B28A"
-          value={location}
-          onChangeText={setLocation}
-        />
-
-        <Text style={styles.label}>Photos (Max 5) *</Text>
-        <TouchableOpacity 
-          style={[styles.uploadButton, photos.length >= 5 && styles.buttonDisabled]} 
-          onPress={pickImage}
-          disabled={photos.length >= 5}
-        >
-          <LinearGradient
-            colors={['#504B38', '#B9B28A']}
-            style={styles.buttonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Ionicons name="cloud-upload" size={20} color="#F8F3D9" />
-            <Text style={styles.uploadButtonText}>
-              {photos.length >= 5 ? 'Maximum reached' : 'Select Photos'}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <View style={styles.photosContainer}>
-          {photos.map((photo, index) => (
-            <View key={index} style={styles.photoItem}>
-              <Image source={{ uri: photo.uri }} style={styles.photo} />
-              <TouchableOpacity 
-                style={styles.deleteButton}
-                onPress={() => removePhoto(index)}
-              >
-                <LinearGradient
-                  colors={['rgba(80, 75, 56, 0.8)', 'rgba(185, 178, 138, 0.8)']}
-                  style={styles.deleteButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Ionicons name="close" size={16} color="#F8F3D9" />
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          ))}
+      {/* Success overlay */}
+      {showSuccess && (
+        <View style={styles.successOverlay}>
+          <Animated.View style={[
+            styles.successCard,
+            { 
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }]
+            }
+          ]}>
+            <Ionicons name="checkmark-circle" size={64} color="#2ecc71" />
+            <Text style={styles.successText}>Report Submitted!</Text>
+          </Animated.View>
         </View>
-
-        <TouchableOpacity
-          style={[styles.submitButton, isSubmitting && styles.submitDisabled]}
-          onPress={submitReport}
-          disabled={isSubmitting || !description || !location || photos.length === 0}
-        >
-          <LinearGradient
-            colors={['#504B38', '#B9B28A']}
-            style={styles.buttonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+      )}
+      
+      <ScrollView 
+        style={styles.scrollContainer} 
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={[
+          styles.header,
+          { 
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()} 
+            style={styles.backButton}
+            activeOpacity={0.7}
           >
-            {isSubmitting ? (
-              <ActivityIndicator color="#F8F3D9" size="small" />
-            ) : (
-              <Text style={styles.submitText}>Submit Report</Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+            <Ionicons name="arrow-back" size={24} color="#504B38" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Submit Report</Text>
+          <View style={{ width: 40 }} />
+        </Animated.View>
+
+        <Animated.View style={[
+          styles.form,
+          { 
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}>
+          {/* Description Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Description *</Text>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              multiline
+              numberOfLines={4}
+              placeholder="Describe what happened, when it occurred, and any other relevant details..."
+              placeholderTextColor="#B9B28A"
+              value={description}
+              onChangeText={setDescription}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Location Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Location *</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Street address, landmark, or area description"
+              placeholderTextColor="#B9B28A"
+              value={location}
+              onChangeText={setLocation}
+            />
+          </View>
+
+          {/* Photos Section */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Evidence Photos (Max 5) *</Text>
+            <TouchableOpacity 
+              style={[
+                styles.uploadButton, 
+                photos.length >= 5 && styles.buttonDisabled
+              ]} 
+              onPress={showImagePickerOptions}
+              disabled={photos.length >= 5}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={photos.length >= 5 ? ['#999', '#666'] : ['#504B38', '#B9B28A']}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons 
+                  name={photos.length >= 5 ? "ban" : "camera"} 
+                  size={20} 
+                  color="#F8F3D9" 
+                />
+                <Text style={styles.uploadButtonText}>
+                  {photos.length >= 5 ? 'Maximum reached' : `Add Photos (${photos.length}/5)`}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={styles.photosContainer}>
+              {photos.map((photo, index) => (
+                <Animated.View 
+                  key={index} 
+                  style={[
+                    styles.photoItem,
+                    { transform: [{ scale: scaleAnim }] }
+                  ]}
+                >
+                  <Image source={{ uri: photo.uri }} style={styles.photo} />
+                  <TouchableOpacity 
+                    style={styles.deleteButton}
+                    onPress={() => removePhoto(index)}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={['rgba(231, 76, 60, 0.9)', 'rgba(192, 57, 43, 0.9)']}
+                      style={styles.deleteButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Ionicons name="close" size={16} color="#FFFFFF" />
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </Animated.View>
+              ))}
+            </View>
+          </View>
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={[
+              styles.submitButton, 
+              (!isFormValid || isSubmitting) && styles.submitDisabled
+            ]}
+            onPress={submitReport}
+            disabled={!isFormValid || isSubmitting}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={(!isFormValid || isSubmitting) ? ['#999', '#666'] : ['#504B38', '#B9B28A']}
+              style={styles.buttonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {isSubmitting ? (
+                <>
+                  <ActivityIndicator color="#F8F3D9" size="small" />
+                  <Text style={styles.submitText}>Submitting...</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="send" size={18} color="#F8F3D9" />
+                  <Text style={styles.submitText}>Submit Report</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Help Text */}
+          <View style={styles.helpContainer}>
+            <Text style={styles.helpText}>
+              💡 Tip: Include clear photos and detailed descriptions to help authorities respond effectively.
+            </Text>
+          </View>
+        </Animated.View>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -220,133 +452,186 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F3D9',
-    position: 'relative',
+  },
+  scrollContainer: {
+    flex: 1,
   },
   decorativeCircle1: {
     position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(185, 178, 138, 0.1)',
+    top: -75,
+    right: -75,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(185, 178, 138, 0.08)',
+    zIndex: 0,
   },
   decorativeCircle2: {
     position: 'absolute',
-    top: 100,
-    left: -30,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(80, 75, 56, 0.08)',
+    top: height * 0.3,
+    left: -40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(80, 75, 56, 0.06)',
+    zIndex: 0,
+  },
+  successOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  successCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
+  },
+  successText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2ecc71',
+    marginTop: 15,
   },
   content: {
     paddingBottom: 30,
+    zIndex: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    backgroundColor: '#F8F3D9',
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 30,
+    backgroundColor: 'rgba(248, 243, 217, 0.95)',
+    backdropFilter: 'blur(10px)',
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(80, 75, 56, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#504B38',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#504B38',
+    letterSpacing: 0.5,
   },
   form: {
     padding: 20,
     marginTop: 10,
   },
+  inputGroup: {
+    marginBottom: 24,
+  },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 10,
     color: '#504B38',
+    letterSpacing: 0.3,
   },
   textInput: {
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#EBE5C2',
-    borderRadius: 12,
-    padding: 15,
-    fontSize: 14,
-    marginBottom: 16,
-    minHeight: 100,
-    textAlignVertical: 'top',
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 15,
     color: '#504B38',
     shadowColor: '#504B38',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  textArea: {
+    minHeight: 120,
+    textAlignVertical: 'top',
   },
   uploadButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,
     shadowColor: '#504B38',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowRadius: 8,
+    elevation: 6,
   },
   buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 15,
+    padding: 16,
+    gap: 8,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   uploadButtonText: {
     color: '#F8F3D9',
-    marginLeft: 8,
-    fontWeight: '500',
+    fontWeight: '600',
     fontSize: 16,
+    letterSpacing: 0.3,
   },
   photosContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 20,
+    marginTop: 10,
   },
   photoItem: {
     width: (width - 60) / 3,
     height: (width - 60) / 3,
     marginRight: 10,
     marginBottom: 10,
-    position: 'relative',
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#EBE5C2',
+    shadowColor: '#504B38',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   photo: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   deleteButton: {
     position: 'absolute',
-    top: 5,
-    right: 5,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    top: 8,
+    right: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   deleteButtonGradient: {
     width: '100%',
@@ -355,24 +640,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   submitButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
+    marginTop: 10,
     shadowColor: '#504B38',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowRadius: 10,
+    elevation: 8,
   },
   submitDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
   submitText: {
     color: '#F8F3D9',
-    fontWeight: '500',
-    fontSize: 16,
+    fontWeight: '700',
+    fontSize: 17,
+    letterSpacing: 0.5,
+  },
+  helpContainer: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: 'rgba(185, 178, 138, 0.1)',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#B9B28A',
+  },
+  helpText: {
+    fontSize: 14,
+    color: '#504B38',
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
 });
 
