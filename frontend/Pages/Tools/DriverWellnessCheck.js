@@ -9,12 +9,29 @@ import {
   Modal,
   Dimensions,
   Platform,
-  KeyboardAvoidingView // Added missing import
+  KeyboardAvoidingView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
 
 const { width, height } = Dimensions.get('window');
+
+// Configure calendar locale
+LocaleConfig.locales['en'] = {
+  monthNames: [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ],
+  monthNamesShort: [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ],
+  dayNames: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  dayNamesShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  today: 'Today'
+};
+LocaleConfig.defaultLocale = 'en';
 
 const DriverWellnessCheck = ({ navigation }) => {
   // Wellness checklist state
@@ -30,6 +47,10 @@ const DriverWellnessCheck = ({ navigation }) => {
   // Tips modal visibility
   const [showTipsModal, setShowTipsModal] = useState(false);
   const [currentTipCategory, setCurrentTipCategory] = useState('fatigue');
+  
+  // Calendar state
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Toggle checklist items
   const toggleChecklistItem = (item) => {
@@ -76,6 +97,16 @@ const DriverWellnessCheck = ({ navigation }) => {
     (Object.values(checklist).filter(Boolean).length / Object.keys(checklist).length) * 100
   );
 
+  // Format date for display
+  const formatDisplayDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -99,7 +130,6 @@ const DriverWellnessCheck = ({ navigation }) => {
           <View style={styles.headerSection}>
             <View style={styles.logoContainer}>
               <View style={styles.logoBackground}>
-                {/* Replace with your actual logo or use a placeholder */}
                 <Ionicons name="heart" size={40} color="#504B38" />
               </View>
               <View style={styles.logoShadow} />
@@ -107,6 +137,66 @@ const DriverWellnessCheck = ({ navigation }) => {
             <Text style={styles.welcomeText}>Driver Wellness Check</Text>
             <Text style={styles.subtitle}>Ensure you're ready for a safe driving experience</Text>
             
+            {/* Date Picker */}
+            <TouchableOpacity 
+              style={styles.datePickerContainer}
+              onPress={() => setShowCalendar(true)}
+            >
+              <Ionicons name="calendar" size={20} color="#504B38" />
+              <Text style={styles.dateText}>{formatDisplayDate(selectedDate)}</Text>
+              <Ionicons name="chevron-down" size={16} color="#504B38" />
+            </TouchableOpacity>
+            
+            {/* Calendar Modal */}
+            <Modal
+              visible={showCalendar}
+              animationType="slide"
+              transparent={true}
+              onRequestClose={() => setShowCalendar(false)}
+            >
+              <View style={styles.calendarModalContainer}>
+                <View style={styles.calendarModalContent}>
+                  <Calendar
+                    current={selectedDate}
+                    onDayPress={(day) => {
+                      setSelectedDate(day.dateString);
+                      setShowCalendar(false);
+                    }}
+                    markedDates={{
+                      [selectedDate]: { selected: true, selectedColor: '#504B38' }
+                    }}
+                    theme={{
+                      backgroundColor: '#F8F3D9',
+                      calendarBackground: '#F8F3D9',
+                      textSectionTitleColor: '#504B38',
+                      selectedDayBackgroundColor: '#504B38',
+                      selectedDayTextColor: '#F8F3D9',
+                      todayTextColor: '#B9B28A',
+                      dayTextColor: '#504B38',
+                      textDisabledColor: '#D3D3D3',
+                      dotColor: '#B9B28A',
+                      selectedDotColor: '#F8F3D9',
+                      arrowColor: '#504B38',
+                      monthTextColor: '#504B38',
+                      indicatorColor: '#504B38',
+                      textDayFontWeight: '400',
+                      textMonthFontWeight: '600',
+                      textDayHeaderFontWeight: '500',
+                      textDayFontSize: 14,
+                      textMonthFontSize: 18,
+                      textDayHeaderFontSize: 14
+                    }}
+                  />
+                  <TouchableOpacity
+                    style={styles.calendarCloseButton}
+                    onPress={() => setShowCalendar(false)}
+                  >
+                    <Text style={styles.calendarCloseButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+
             {/* Decorative Line */}
             <View style={styles.decorativeLine}>
               <View style={styles.lineSegment} />
@@ -473,6 +563,56 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 22,
     marginBottom: 25,
+  },
+  // Date Picker Styles
+  datePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    marginBottom: 25,
+    shadowColor: '#504B38',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  dateText: {
+    fontSize: 16,
+    color: '#504B38',
+    fontWeight: '500',
+    marginHorizontal: 8,
+  },
+  // Calendar Modal Styles
+  calendarModalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(80, 75, 56, 0.5)',
+  },
+  calendarModalContent: {
+    backgroundColor: '#F8F3D9',
+    marginHorizontal: 20,
+    borderRadius: 15,
+    padding: 15,
+    shadowColor: '#504B38',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  calendarCloseButton: {
+    backgroundColor: '#504B38',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  calendarCloseButtonText: {
+    color: '#F8F3D9',
+    fontSize: 16,
+    fontWeight: '600',
   },
   decorativeLine: {
     flexDirection: 'row',

@@ -89,7 +89,7 @@ const toolsFeatures = [
     { id: '13', title: 'Parental Monitoring', icon: 'people-circle-outline', route: 'ParentalMonitoring' },
     { id: '14', title: 'Settings', icon: 'settings-outline', route: 'Settings' },
     { id: '15', title: 'Help & Support', icon: 'help-circle-outline', route: 'Support' },
-    { id: '16', title: 'About', icon: 'information-circle-outline', route: 'About' },
+    { id: '16', title: 'About Us', icon: 'information-circle-outline', route: 'AboutUs' },
   ];
 
   const fetchProfile = async () => {
