@@ -17,6 +17,7 @@ import Forum from './Pages/Community/Forum';
 import AIChatbot from './Pages/Tools/AiChatBot';
 import DriverWellnessCheck from './Pages/Tools/DriverWellnessCheck';
 import AboutUs from './Pages/AboutUs';
+import VehicleMaintenance from './Pages/Tools/VehicleMaintainance';
 const Stack = createStackNavigator();
 
 const theme = {
@@ -38,6 +39,11 @@ export default function App() {
           <Stack.Screen 
             name="Login" 
             component={Login} a
+            options={{ headerShown: false }} 
+          />
+             <Stack.Screen 
+            name="VehicleMaintenance" 
+            component={VehicleMaintenance} a
             options={{ headerShown: false }} 
           />
            <Stack.Screen 
