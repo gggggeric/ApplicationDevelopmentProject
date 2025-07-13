@@ -3,15 +3,14 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AdminLogin from '../src/Auth/AdminLogin';
-
+import AdminDashboard from './Dashboard/AdminDashboard';
 function App() {
   return (
     <>
       <Router>
         <Routes>
           <Route path="/" element={<AdminLogin />} />
-          {/* Add other routes as needed */}
-          {/* <Route path="/dashboard" element={<Dashboard />} /> */}
+            <Route path="/dashboard" element={<AdminDashboard />} />
         </Routes>
       </Router>
       
